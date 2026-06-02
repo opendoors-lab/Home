@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, CarFront } from "lucide-react";
-import { brand } from "@/lib/content";
+import { Menu, X } from "lucide-react";
+import Logo from "@/components/Logo";
 import { mainNav, routes } from "@/lib/routes";
 
 export default function Nav() {
@@ -17,15 +17,7 @@ export default function Nav() {
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-line)]/70 bg-[var(--color-cream)]/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
-        <Link
-          href={routes.home}
-          className="group flex items-center gap-2.5 font-[family-name:var(--font-display)] text-2xl text-[var(--color-forest)]"
-        >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-forest)] text-[var(--color-amber)] shadow-sm transition-transform group-hover:scale-105">
-            <CarFront className="h-5 w-5" strokeWidth={2.25} />
-          </span>
-          {brand.name}
-        </Link>
+        <Logo priority />
 
         <nav className="hidden items-center gap-1 lg:flex">
           {mainNav.map((n) => (
