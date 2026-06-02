@@ -1,26 +1,72 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* ── Official brand palette ───────────────────────────── */
+  --brand-orange: #f27314;   /* PRIMARY  · Metallic Orange  · R242 G115 B20 */
+  --brand-pearl:  #edf3d3;   /* SECONDARY· Shimmer Pearl    · R237 G243 B211 */
+  --brand-blue:   #122c6b;   /* ACCENT   · Synthetic Blue   · R18 G44 B107  */
+
+  /* ── Semantic tokens (mapped to brand colors) ─────────── */
+  --color-forest: var(--brand-blue);   /* structural dark + headings (Synthetic Blue) */
+  --color-forest-700: #1e3d8f;         /* lighter navy for icons/hairlines */
+  --color-amber: var(--brand-orange);  /* PRIMARY accent / CTAs (Metallic Orange) */
+  --color-amber-300: #f7a25a;          /* lighter orange for highlights on dark bg */
+  --color-cream: #f8faf0;              /* page background (near-white pearl tint) */
+  --color-cream-200: var(--brand-pearl); /* surfaces / card fills (Shimmer Pearl) */
+  --color-ink: #16203a;                /* body text (navy-tinted near-black) */
+  --color-ink-soft: #4a546b;           /* muted body text */
+  --color-line: #d7dec2;               /* pearl-derived hairlines */
+
+  /* Fonts (wired in layout.tsx via next/font CSS variables) */
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-hanken), system-ui, sans-serif;
+
+  /* Radii & shadow */
+  --radius-card: 20px;
+  --shadow-soft: 0 1px 2px rgba(18,44,107,.05), 0 12px 32px -12px rgba(18,44,107,.20);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { -webkit-font-smoothing: antialiased; }
+html { scroll-behavior: smooth; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  background-image: url("/grain.png");
+  background-size: 220px;
+  background-blend-mode: multiply;
+}
+
+h1, h2, h3 { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.02em; }
+
+.amharic { font-family: var(--font-ethiopic), "Noto Sans Ethiopic", var(--font-body); }
+
+::selection { background: var(--brand-orange); color: #ffffff; }
+
+/* Carpooling UI utilities */
+.route-line {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-amber) 0,
+    var(--color-amber) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  background-size: 12px 2px;
+  background-repeat: repeat-x;
+  background-position: center;
+  height: 2px;
+}
+
+.card-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-soft), 0 20px 40px -20px rgba(18, 44, 107, 0.25);
+}
+
+.page-main {
+  min-height: calc(100vh - 12rem);
 }
