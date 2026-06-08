@@ -1,0 +1,22 @@
+{
+  "name": "company-home",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "mobimates",
+    "backend",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w mobimates",
+    "dev:web:webpack": "npm run dev:webpack -w mobimates",
+    "dev:api": "npm run dev -w backend",
+    "build:web": "npm run build -w mobimates",
+    "build:api": "npm run build -w backend",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
+    "build:shared": "npm run build -w @company/shared",
+    "db:migrate": "npm run db:migrate -w backend",
+    "db:seed": "npm run db:seed -w backend",
+    "test:e2e": "npm run test:e2e -w backend"
+  }
+}

@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  name          String?
+  passwordHash  String?
+  mustChangePassword Boolean  @default(false)
+  accountStatus AccountStatus @default(INVITED)
+  invitedById   String?
+  invitedBy     User?         @relation("Invites", fields: [invitedById], references: [id])
+  invitees      User[]        @relation("Invites")
+  roles         UserRole[]
+  posts         Post[]        @relation("AuthoredPosts")
+  approvals     PostApproval[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model AuthToken {
+  id         String    @id @default(uuid())
+  email      String
+  tokenHash  String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Permission {
+  id    String           @id @default(uuid())
+  key   String           @unique
+  label String
+  roles RolePermission[]
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  permissions RolePermission[]
+  users       UserRole[]
+  createdAt   DateTime         @default(now())
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+enum AssignmentStatus {
+  PENDING_OWNER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model UserRole {
+  id           String           @id @default(uuid())
+  userId       String
+  roleId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role             @relation(fields: [roleId], references: [id])
+  status       AssignmentStatus @default(PENDING_OWNER_REVIEW)
+  assignedById String?
+  approvedById String?
+  createdAt    DateTime         @default(now())
+
+  @@unique([userId, roleId])
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+}
+
+model Post {
+  id            String         @id @default(uuid())
+  slug          String         @unique
+  title         String
+  body          String
+  excerpt       String?
+  coverImageUrl String?
+  authorId      String
+  author        User           @relation("AuthoredPosts", fields: [authorId], references: [id])
+  status        PostStatus     @default(DRAFT)
+  approvals     PostApproval[]
+  publishedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+enum ApprovalDecision {
+  APPROVE
+  REJECT
+}
+
+model PostApproval {
+  id         String           @id @default(uuid())
+  postId     String
+  reviewerId String
+  post       Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reviewer   User             @relation(fields: [reviewerId], references: [id])
+  decision   ApprovalDecision
+  comment    String?
+  createdAt  DateTime         @default(now())
+
+  @@unique([postId, reviewerId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
+
+model SentEmail {
+  id     String   @id @default(uuid())
+  email  String
+  type   String
+  sentAt DateTime @default(now())
+
+  @@unique([email, type])
+}
