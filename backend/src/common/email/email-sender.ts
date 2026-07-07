@@ -13,6 +13,12 @@ export class EmailSender {
       host: config.host,
       port: config.port,
       secure: config.secure,
+      ...(config.authMethod ? { authMethod: config.authMethod } : {}),
+      ...(config.connectionTimeoutMs
+        ? { connectionTimeout: config.connectionTimeoutMs }
+        : {}),
+      ...(config.greetingTimeoutMs ? { greetingTimeout: config.greetingTimeoutMs } : {}),
+      ...(config.socketTimeoutMs ? { socketTimeout: config.socketTimeoutMs } : {}),
       auth: {
         user: config.user,
         pass: config.pass,

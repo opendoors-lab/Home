@@ -18,6 +18,14 @@ export class MailerService {
       'Company Support <support@company.com>';
 
     if (host) {
+      const authMethodRaw = (this.config.get<string>('SMTP_AUTH_METHOD') ?? '')
+        .toUpperCase()
+        .trim();
+      const authMethod =
+        authMethodRaw === 'LOGIN' || authMethodRaw === 'PLAIN' || authMethodRaw === 'CRAM-MD5'
+          ? (authMethodRaw as 'LOGIN' | 'PLAIN' | 'CRAM-MD5')
+          : undefined;
+
       this.smtpConfig = {
         host,
         port,
@@ -25,6 +33,10 @@ export class MailerService {
           this.config.get<string>('SMTP_SECURE') === 'true' || port === 465,
         user: this.config.get<string>('SMTP_USER') ?? '',
         pass: this.config.get<string>('SMTP_PASS') ?? '',
+        authMethod,
+        connectionTimeoutMs: Number(this.config.get<string>('SMTP_CONNECTION_TIMEOUT_MS') ?? '') || undefined,
+        greetingTimeoutMs: Number(this.config.get<string>('SMTP_GREETING_TIMEOUT_MS') ?? '') || undefined,
+        socketTimeoutMs: Number(this.config.get<string>('SMTP_SOCKET_TIMEOUT_MS') ?? '') || undefined,
       };
     } else {
       this.smtpConfig = null;
