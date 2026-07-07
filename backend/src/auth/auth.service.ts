@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AccountStatus } from '@prisma/client';
+import { createHash, randomBytes } from 'crypto';
 import { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from '../common/services/permissions.service';
@@ -190,6 +191,84 @@ export class AuthService {
     };
   }
 
+  async requestPasswordReset(email: string) {
+    const normalized = email.toLowerCase().trim();
+
+    if (this.permissions.isOwner(normalized)) {
+      await this.mailer.sendOwnerPasswordResetInfo(normalized);
+      return { ok: true };
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalized },
+    });
+
+    if (
+      !user ||
+      user.accountStatus === AccountStatus.DISABLED ||
+      !user.passwordHash
+    ) {
+      return { ok: true };
+    }
+
+    const plainToken = randomBytes(32).toString('base64url');
+    const tokenHash = createHash('sha256').update(plainToken).digest('hex');
+    const ttlMin = Number(
+      this.config.get<string>('PASSWORD_RESET_TTL_MIN') ?? '60',
+    );
+    const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
+
+    await this.prisma.authToken.deleteMany({ where: { email: normalized } });
+    await this.prisma.authToken.create({
+      data: { email: normalized, tokenHash, expiresAt },
+    });
+
+    await this.mailer.sendPasswordResetLink(normalized, plainToken, ttlMin);
+    return { ok: true };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const record = await this.prisma.authToken.findFirst({
+      where: {
+        tokenHash,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!record) {
+      throw new BadRequestException('Invalid or expired reset link');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: record.email },
+    });
+
+    if (!user || user.accountStatus === AccountStatus.DISABLED) {
+      throw new BadRequestException('Invalid or expired reset link');
+    }
+
+    const passwordHash = await this.password.hash(newPassword);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+          accountStatus: AccountStatus.ACTIVE,
+        },
+      }),
+      this.prisma.authToken.update({
+        where: { id: record.id },
+        data: { consumedAt: new Date() },
+      }),
+    ]);
+
+    return { ok: true };
+  }
+
   async refresh(req: { cookies?: Record<string, string> }, res: Response) {
     const refreshToken = req.cookies?.refresh_token;
     if (!refreshToken) throw new UnauthorizedException();
@@ -214,7 +293,11 @@ export class AuthService {
       }
     }
 
-    this.setTokens(res, payload);
+    this.setTokens(res, {
+      sub: payload.sub,
+      email: payload.email,
+      isOwner: payload.isOwner,
+    });
     return { ok: true };
   }
 
@@ -229,10 +312,12 @@ export class AuthService {
     payload: { sub: string; email: string; isOwner: boolean },
   ) {
     const accessTtl = this.config.get<string>('ACCESS_TOKEN_TTL') ?? '15m';
-    const refreshTtl = this.config.get<string>('REFRESH_TOKEN_TTL') ?? '90d';
+    // For "stay logged in unless sign out", use a very long refresh TTL.
+    // You can still override via env (REFRESH_TOKEN_TTL).
+    const refreshTtl = this.config.get<string>('REFRESH_TOKEN_TTL') ?? '3650d';
     const isProd = this.config.get('NODE_ENV') === 'production';
     const accessMaxAge = ttlToMs(accessTtl, 15 * 60 * 1000);
-    const refreshMaxAge = ttlToMs(refreshTtl, 90 * 24 * 60 * 60 * 1000);
+    const refreshMaxAge = ttlToMs(refreshTtl, 3650 * 24 * 60 * 60 * 1000);
 
     const accessToken = this.jwt.sign(payload, {
       secret:

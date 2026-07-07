@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PostDto } from "@company/shared";
+import { PERMISSIONS } from "@company/shared";
 import { adminApi } from "@/lib/admin-api";
+import { useAuth } from "@/contexts/AuthContext";
 import TipTapEditor from "./TipTapEditor";
 
 interface PostEditorProps {
@@ -12,6 +14,10 @@ interface PostEditorProps {
 
 export default function PostEditor({ post }: PostEditorProps) {
   const router = useRouter();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission(PERMISSIONS.CREATE_POST);
+  const canSubmit = hasPermission(PERMISSIONS.SUBMIT_POST);
+  const canDelete = hasPermission(PERMISSIONS.DELETE_POST);
   const [title, setTitle] = useState(post?.title ?? "");
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
   const [body, setBody] = useState(post?.body ?? "<p></p>");
@@ -134,16 +140,18 @@ export default function PostEditor({ post }: PostEditorProps) {
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <button
-          type="button"
-          disabled={saving || !title}
-          onClick={saveDraft}
-          className="rounded-xl bg-[var(--color-forest)] px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          Save draft
-        </button>
-        {post && (post.status === "DRAFT" || post.status === "REJECTED") && (
+      <div className="flex flex-wrap gap-3">
+        {(canCreate || !post) && (
+          <button
+            type="button"
+            disabled={saving || !title}
+            onClick={saveDraft}
+            className="rounded-xl bg-[var(--color-forest)] px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            Save draft
+          </button>
+        )}
+        {post && canSubmit && (post.status === "DRAFT" || post.status === "REJECTED") && (
           <button
             type="button"
             disabled={saving || !title}
@@ -151,6 +159,27 @@ export default function PostEditor({ post }: PostEditorProps) {
             className="rounded-xl bg-[var(--color-amber)] px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             Submit for review
+          </button>
+        )}
+        {post && canDelete && (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={async () => {
+              if (!window.confirm("Delete this post permanently?")) return;
+              setSaving(true);
+              try {
+                await adminApi.deletePost(post.id);
+                router.push("/admin/posts/mine");
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Delete failed");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="rounded-xl border border-red-200 px-5 py-2 text-sm font-medium text-red-700 disabled:opacity-50"
+          >
+            Delete post
           </button>
         )}
       </div>

@@ -32,7 +32,9 @@ async function adminFetch<T>(path: string, opts: FetchOpts = {}): Promise<T> {
     res.status === 401 &&
     !skipRefresh &&
     path !== '/auth/refresh' &&
-    path !== '/auth/login'
+    path !== '/auth/login' &&
+    path !== '/auth/forgot-password' &&
+    path !== '/auth/reset-password'
   ) {
     const refreshed = await tryRefreshSession();
     if (refreshed) {
@@ -60,6 +62,20 @@ export const adminApi = {
     adminFetch<{ ok: boolean }>('/auth/change-password', {
       method: 'POST',
       json: { currentPassword, newPassword },
+    }),
+
+  forgotPassword: (email: string) =>
+    adminFetch<{ ok: boolean }>('/auth/forgot-password', {
+      method: 'POST',
+      json: { email },
+      skipRefresh: true,
+    }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    adminFetch<{ ok: boolean }>('/auth/reset-password', {
+      method: 'POST',
+      json: { token, newPassword },
+      skipRefresh: true,
     }),
 
   me: () => adminFetch<AuthMeResponse>('/auth/me'),
@@ -93,6 +109,11 @@ export const adminApi = {
       json: { roleId },
     }),
 
+  revokeRole: (userId: string, assignmentId: string) =>
+    adminFetch<{ ok: boolean }>(`/users/${userId}/roles/${assignmentId}`, {
+      method: 'DELETE',
+    }),
+
   pendingAssignments: () =>
     adminFetch<RoleAssignmentDto[]>('/role-assignments/pending'),
 
@@ -117,6 +138,8 @@ export const adminApi = {
     adminFetch(`/roles/${id}`, { method: 'DELETE' }),
 
   listMyPosts: () => adminFetch<PostDto[]>('/posts/mine'),
+
+  listAllPosts: () => adminFetch<PostDto[]>('/posts'),
 
   listPendingPosts: () => adminFetch<PostDto[]>('/posts/pending'),
 

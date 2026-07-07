@@ -65,7 +65,7 @@ export default async function BlogPostPage({
       </header>
 
       <div
-        className="prose prose-lg mt-10 max-w-none prose-headings:font-[family-name:var(--font-display)] prose-headings:text-[var(--color-forest)] prose-a:text-[var(--color-amber)]"
+        className="post-render mt-10"
         dangerouslySetInnerHTML={{ __html: post.body }}
       />
     </article>

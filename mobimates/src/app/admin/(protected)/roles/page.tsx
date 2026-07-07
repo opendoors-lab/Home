@@ -2,29 +2,34 @@
 
 import { useEffect, useState } from "react";
 import type { RoleDto } from "@company/shared";
-import { ADMIN_PAGES, PERMISSIONS } from "@company/shared";
+import {
+  ALL_PERMISSION_KEYS,
+  getPagesForPermission,
+  PERMISSION_LABELS,
+  PERMISSIONS,
+  type PermissionKey,
+} from "@company/shared";
 import { adminApi } from "@/lib/admin-api";
 import { useAuth } from "@/contexts/AuthContext";
 
-const ALL_PERMS = Object.entries(PERMISSIONS).map(([label, key]) => ({ label, key }));
-
-function pagesForPermission(key: string): string[] {
-  return ADMIN_PAGES.filter(
-    (p) => p.permissions?.includes(key as (typeof PERMISSIONS)[keyof typeof PERMISSIONS]),
-  ).map((p) => p.label);
-}
+const ALL_PERMS = ALL_PERMISSION_KEYS.map((key) => ({
+  key,
+  label: PERMISSION_LABELS[key],
+}));
 
 function PermissionPicker({
   selected,
   onToggle,
+  readOnly,
 }: {
   selected: string[];
   onToggle: (key: string) => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {ALL_PERMS.map((p) => {
-        const pages = pagesForPermission(p.key);
+        const pages = getPagesForPermission(p.key);
         return (
           <label
             key={p.key}
@@ -34,10 +39,11 @@ function PermissionPicker({
               type="checkbox"
               className="mt-0.5"
               checked={selected.includes(p.key)}
+              disabled={readOnly}
               onChange={() => onToggle(p.key)}
             />
             <span>
-              <span className="font-medium">{p.label.replace(/_/g, " ").toLowerCase()}</span>
+              <span className="font-medium">{p.label}</span>
               {pages.length > 0 && (
                 <span className="mt-0.5 block text-xs text-[var(--color-ink-soft)]">
                   Pages: {pages.join(", ")}
@@ -53,10 +59,12 @@ function PermissionPicker({
 
 function RoleEditor({
   role,
+  canEdit,
   onSaved,
   onDeleted,
 }: {
   role: RoleDto;
+  canEdit: boolean;
   onSaved: () => void;
   onDeleted: () => void;
 }) {
@@ -128,51 +136,53 @@ function RoleEditor({
             <p className="mt-1 text-sm text-[var(--color-ink-soft)]">{role.description}</p>
           )}
         </div>
-        <div className="flex gap-2">
-          {!editing ? (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-sm hover:bg-[var(--color-cream-200)]"
-            >
-              Edit
-            </button>
-          ) : (
-            <>
+        {canEdit && (
+          <div className="flex gap-2">
+            {!editing ? (
               <button
                 type="button"
-                onClick={() => {
-                  setEditing(false);
-                  setName(role.name);
-                  setDescription(role.description ?? "");
-                  setSelectedPerms(role.permissionKeys);
-                  setError("");
-                }}
-                className="rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-sm"
+                onClick={() => setEditing(true)}
+                className="rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-sm hover:bg-[var(--color-cream-200)]"
               >
-                Cancel
+                Edit
               </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(false);
+                    setName(role.name);
+                    setDescription(role.description ?? "");
+                    setSelectedPerms(role.permissionKeys);
+                    setError("");
+                  }}
+                  className="rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={save}
+                  className="rounded-lg bg-[var(--color-forest)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </>
+            )}
+            {!role.isSystem && !editing && (
               <button
                 type="button"
                 disabled={saving}
-                onClick={save}
-                className="rounded-lg bg-[var(--color-forest)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                onClick={remove}
+                className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
               >
-                {saving ? "Saving…" : "Save"}
+                Delete
               </button>
-            </>
-          )}
-          {!role.isSystem && !editing && (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={remove}
-              className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
-            >
-              Delete
-            </button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -207,10 +217,11 @@ function RoleEditor({
       ) : (
         <ul className="mt-3 space-y-1 text-xs text-[var(--color-ink-soft)]">
           {role.permissionKeys.map((key) => {
-            const pages = pagesForPermission(key);
+            const pages = getPagesForPermission(key as PermissionKey);
+            const label = PERMISSION_LABELS[key as PermissionKey] ?? key;
             return (
               <li key={key}>
-                <span className="font-medium text-[var(--color-forest)]">{key}</span>
+                <span className="font-medium text-[var(--color-forest)]">{label}</span>
                 {pages.length > 0 && ` → ${pages.join(", ")}`}
               </li>
             );
@@ -222,7 +233,13 @@ function RoleEditor({
 }
 
 export default function RolesPage() {
-  const { isOwner } = useAuth();
+  const { isOwner, hasPermission } = useAuth();
+  const canView =
+    isOwner ||
+    hasPermission(PERMISSIONS.MANAGE_ROLES) ||
+    hasPermission(PERMISSIONS.ASSIGN_ROLES);
+  const canEdit = isOwner || hasPermission(PERMISSIONS.MANAGE_ROLES);
+
   const [roles, setRoles] = useState<RoleDto[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -233,8 +250,8 @@ export default function RolesPage() {
   }
 
   useEffect(() => {
-    if (isOwner) refresh();
-  }, [isOwner]);
+    if (canView) refresh();
+  }, [canView]);
 
   async function createRole() {
     await adminApi.createRole({ name, description, permissionKeys: selectedPerms });
@@ -250,10 +267,10 @@ export default function RolesPage() {
     );
   }
 
-  if (!isOwner) {
+  if (!canView) {
     return (
       <div className="rounded-xl border border-[var(--color-line)] bg-white p-6">
-        <p className="text-[var(--color-ink-soft)]">Only the owner can manage roles and page access.</p>
+        <p className="text-[var(--color-ink-soft)]">You do not have access to roles.</p>
       </div>
     );
   }
@@ -264,39 +281,49 @@ export default function RolesPage() {
         Roles & page access
       </h1>
       <p className="mt-2 text-sm text-[var(--color-ink-soft)]">
-        Default roles (Author, Reviewer, System Admin) can be edited but not deleted.
+        {canEdit
+          ? "Define roles and which admin pages each role can access."
+          : "View role definitions and which pages each permission unlocks."}
       </p>
 
-      <div className="mt-6 rounded-xl border border-[var(--color-line)] bg-white p-5">
-        <h2 className="text-sm font-semibold">Create custom role</h2>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Role name"
-          className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
-        />
-        <input
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description"
-          className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
-        />
-        <div className="mt-3">
-          <PermissionPicker selected={selectedPerms} onToggle={togglePerm} />
+      {canEdit && (
+        <div className="mt-6 rounded-xl border border-[var(--color-line)] bg-white p-5">
+          <h2 className="text-sm font-semibold">Create custom role</h2>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Role name"
+            className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+          />
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description"
+            className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+          />
+          <div className="mt-3">
+            <PermissionPicker selected={selectedPerms} onToggle={togglePerm} />
+          </div>
+          <button
+            type="button"
+            onClick={createRole}
+            disabled={!name}
+            className="mt-4 rounded-lg bg-[var(--color-forest)] px-4 py-2 text-sm text-white disabled:opacity-50"
+          >
+            Create role
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={createRole}
-          disabled={!name}
-          className="mt-4 rounded-lg bg-[var(--color-forest)] px-4 py-2 text-sm text-white disabled:opacity-50"
-        >
-          Create role
-        </button>
-      </div>
+      )}
 
       <div className="mt-8 space-y-4">
         {roles.map((role) => (
-          <RoleEditor key={role.id} role={role} onSaved={refresh} onDeleted={refresh} />
+          <RoleEditor
+            key={role.id}
+            role={role}
+            canEdit={canEdit}
+            onSaved={refresh}
+            onDeleted={refresh}
+          />
         ))}
       </div>
     </div>

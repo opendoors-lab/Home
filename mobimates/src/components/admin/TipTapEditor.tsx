@@ -10,6 +10,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { useEffect, useCallback } from "react";
 import type { Editor } from "@tiptap/react";
+import { marked } from "marked";
 import {
   AlignCenter,
   AlignLeft,
@@ -39,6 +40,20 @@ interface TipTapEditorProps {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
+}
+
+function looksLikeMarkdown(text: string) {
+  const t = text.trim();
+  if (!t) return false;
+
+  return (
+    /^#{1,6}\s/m.test(t) ||
+    /```[\s\S]*?```/m.test(t) ||
+    /^\s*[-*+]\s+/m.test(t) ||
+    /^\s*\d+\.\s+/m.test(t) ||
+    /^\s*>\s+/m.test(t) ||
+    /^\s*---\s*$/m.test(t)
+  );
 }
 
 function ToolbarButton({
@@ -295,6 +310,15 @@ export default function TipTapEditor({
       attributes: {
         class: "tiptap-prose",
         "data-placeholder": placeholder,
+      },
+      handlePaste(_view, event) {
+        const text = event.clipboardData?.getData("text/plain") ?? "";
+        if (!looksLikeMarkdown(text)) return false;
+
+        event.preventDefault();
+        const html = marked.parse(text, { breaks: true }) as string;
+        editor?.chain().focus().insertContent(html).run();
+        return true;
       },
     },
   });

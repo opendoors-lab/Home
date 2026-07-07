@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -68,13 +69,23 @@ export class UsersController {
     return this.usersService.assignRole(id, dto.roleId, user);
   }
 
-  @OwnerOnly()
+  @RequirePermissions(PERMISSIONS.ASSIGN_ROLES)
+  @Delete('users/:userId/roles/:assignmentId')
+  revokeRole(
+    @Param('userId') userId: string,
+    @Param('assignmentId') assignmentId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.usersService.revokeRole(userId, assignmentId, user);
+  }
+
+  @RequirePermissions(PERMISSIONS.ASSIGN_ROLES)
   @Get('role-assignments/pending')
   listPending() {
     return this.usersService.listPendingAssignments();
   }
 
-  @OwnerOnly()
+  @RequirePermissions(PERMISSIONS.ASSIGN_ROLES)
   @Post('role-assignments/:id/approve')
   approveAssignment(
     @Param('id') id: string,
@@ -83,7 +94,7 @@ export class UsersController {
     return this.usersService.approveAssignment(id, user);
   }
 
-  @OwnerOnly()
+  @RequirePermissions(PERMISSIONS.ASSIGN_ROLES)
   @Post('role-assignments/:id/reject')
   rejectAssignment(
     @Param('id') id: string,

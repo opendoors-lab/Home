@@ -33,12 +33,25 @@ export class PostsController {
     return this.postsService.listMine(user);
   }
 
+  @RequirePermissions(PERMISSIONS.EDIT_ANY_POST)
+  @Get()
+  listAll() {
+    return this.postsService.listAll();
+  }
+
   @RequirePermissions(PERMISSIONS.VIEW_PENDING_QUEUE)
   @Get('pending')
   listPending() {
     return this.postsService.listPending();
   }
 
+  @RequireAnyPermissions(
+    PERMISSIONS.CREATE_POST,
+    PERMISSIONS.EDIT_OWN_POST,
+    PERMISSIONS.EDIT_ANY_POST,
+    PERMISSIONS.VIEW_PENDING_QUEUE,
+    PERMISSIONS.DELETE_POST,
+  )
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.postsService.getById(id);

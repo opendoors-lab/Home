@@ -70,3 +70,79 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 500; letter-spacing:
 .page-main {
   min-height: calc(100vh - 12rem);
 }
+
+/* Rendered post content (match editor look as close as possible) */
+.post-render {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--color-ink);
+}
+
+.post-render h1,
+.post-render h2,
+.post-render h3 {
+  font-family: var(--font-display);
+  color: var(--color-forest);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.25;
+}
+
+.post-render h1 { font-size: 1.875rem; }
+.post-render h2 { font-size: 1.5rem; }
+.post-render h3 { font-size: 1.25rem; }
+
+.post-render p { margin: 0.75em 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.post-render ul,
+.post-render ol { margin: 0.75em 0; padding-left: 1.5em; }
+.post-render li { margin: 0.25em 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.post-render blockquote {
+  margin: 1em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--color-amber);
+  color: var(--color-ink-soft);
+  font-style: italic;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.post-render pre {
+  margin: 1em 0;
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-cream-200);
+  overflow-x: auto;
+  font-size: 0.875rem;
+}
+
+.post-render code {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: var(--color-cream-200);
+  font-size: 0.875em;
+}
+
+.post-render pre code {
+  padding: 0;
+  background: none;
+}
+
+.post-render hr {
+  margin: 1.5em 0;
+  border: none;
+  border-top: 1px solid var(--color-line);
+}
+
+.post-render a {
+  color: var(--color-amber);
+  text-decoration: underline;
+}
+
+.post-render img {
+  max-width: 100%;
+  height: auto;
+  margin: 1em 0;
+  border-radius: 0.75rem;
+}

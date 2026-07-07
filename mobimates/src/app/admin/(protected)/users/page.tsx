@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { RoleDto, UserDto } from "@company/shared";
+import { PERMISSIONS } from "@company/shared";
 import { adminApi } from "@/lib/admin-api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -9,6 +10,10 @@ type UserRow = UserDto & { roles: { id: string; roleName: string; status: string
 
 export default function UsersPage() {
   const { isOwner, hasPermission } = useAuth();
+  const canInvite = isOwner || hasPermission(PERMISSIONS.INVITE_USER);
+  const canManage = isOwner || hasPermission(PERMISSIONS.MANAGE_USERS);
+  const canAssign = isOwner || hasPermission(PERMISSIONS.ASSIGN_ROLES);
+
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<RoleDto[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -17,11 +22,17 @@ export default function UsersPage() {
   const [bootstrapEmail, setBootstrapEmail] = useState("");
 
   function refresh() {
-    adminApi.listUsers().then(setUsers).catch(console.error);
-    adminApi.listRoles().then(setRoles).catch(console.error);
+    if (canManage) {
+      adminApi.listUsers().then(setUsers).catch(console.error);
+    }
+    if (canAssign || canInvite) {
+      adminApi.listRoles().then(setRoles).catch(console.error);
+    }
   }
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+  }, [canManage, canAssign, canInvite]);
 
   async function invite() {
     await adminApi.inviteUser({
@@ -41,6 +52,7 @@ export default function UsersPage() {
   }
 
   async function toggleDisabled(user: UserRow) {
+    if (user.isOwner) return;
     await adminApi.updateUser(user.id, {
       accountStatus: user.accountStatus === "DISABLED" ? "ACTIVE" : "DISABLED",
     });
@@ -49,6 +61,11 @@ export default function UsersPage() {
 
   async function assignRole(userId: string, roleId: string) {
     await adminApi.assignRole(userId, roleId);
+    refresh();
+  }
+
+  async function revokeRole(userId: string, assignmentId: string) {
+    await adminApi.revokeRole(userId, assignmentId);
     refresh();
   }
 
@@ -61,6 +78,9 @@ export default function UsersPage() {
       {isOwner && (
         <div className="mt-6 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-cream-200)]/40 p-5">
           <h2 className="text-sm font-semibold text-[var(--color-forest)]">Bootstrap System Admin</h2>
+          <p className="mt-1 text-xs text-[var(--color-ink-soft)]">
+            Create a System Admin who can manage users, roles, role approvals, and audit logs.
+          </p>
           <div className="mt-3 flex gap-2">
             <input
               value={bootstrapEmail}
@@ -75,7 +95,7 @@ export default function UsersPage() {
         </div>
       )}
 
-      {hasPermission("invite_user") && (
+      {canInvite && (
         <div className="mt-6 rounded-xl border border-[var(--color-line)] bg-white p-5">
           <h2 className="text-sm font-semibold text-[var(--color-forest)]">Invite user</h2>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -92,34 +112,68 @@ export default function UsersPage() {
         </div>
       )}
 
-      <div className="mt-8 space-y-4">
-        {users.map((user) => (
-          <div key={user.id} className="rounded-xl border border-[var(--color-line)] bg-white p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-medium">{user.name ?? user.email}</p>
-                <p className="text-sm text-[var(--color-ink-soft)]">{user.email} · {user.accountStatus}</p>
-                <p className="mt-1 text-xs text-[var(--color-ink-soft)]">
-                  Roles: {user.roles.map((r) => `${r.roleName} (${r.status})`).join(", ") || "none"}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => toggleDisabled(user)} className="rounded border px-3 py-1 text-xs">
-                  {user.accountStatus === "DISABLED" ? "Enable" : "Disable"}
-                </button>
-                <select
-                  onChange={(e) => { if (e.target.value) assignRole(user.id, e.target.value); e.target.value = ""; }}
-                  className="rounded border px-2 py-1 text-xs"
-                  defaultValue=""
-                >
-                  <option value="" disabled>Assign role…</option>
-                  {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
+      {canManage && (
+        <div className="mt-8 space-y-4">
+          {users.map((user) => (
+            <div key={user.id} className="rounded-xl border border-[var(--color-line)] bg-white p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium">
+                    {user.name ?? user.email}
+                    {user.isOwner && (
+                      <span className="ml-2 rounded-full bg-[var(--color-cream-200)] px-2 py-0.5 text-xs text-[var(--color-ink-soft)]">
+                        Owner
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-sm text-[var(--color-ink-soft)]">{user.email} · {user.accountStatus}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {user.roles.length === 0 && (
+                      <span className="text-xs text-[var(--color-ink-soft)]">No roles</span>
+                    )}
+                    {user.roles.map((r) => (
+                      <span
+                        key={r.id}
+                        className="inline-flex items-center gap-1 rounded-full bg-[var(--color-cream-200)] px-2.5 py-1 text-xs text-[var(--color-forest)]"
+                      >
+                        {r.roleName}
+                        <span className="text-[var(--color-ink-soft)]">({r.status})</span>
+                        {canAssign && !user.isOwner && r.status === "APPROVED" && (
+                          <button
+                            type="button"
+                            onClick={() => revokeRole(user.id, r.id)}
+                            className="ml-1 text-red-700 hover:underline"
+                            title={`Remove ${r.roleName}`}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {!user.isOwner && (
+                    <button type="button" onClick={() => toggleDisabled(user)} className="rounded border px-3 py-1 text-xs">
+                      {user.accountStatus === "DISABLED" ? "Enable" : "Disable"}
+                    </button>
+                  )}
+                  {canAssign && !user.isOwner && (
+                    <select
+                      onChange={(e) => { if (e.target.value) assignRole(user.id, e.target.value); e.target.value = ""; }}
+                      className="rounded border px-2 py-1 text-xs"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Assign role…</option>
+                      {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

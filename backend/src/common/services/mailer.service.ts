@@ -108,6 +108,32 @@ From the admin dashboard you can bootstrap a System Admin, invite users, and man
     await this.sendMail(email, subject, text, html);
   }
 
+  async sendPasswordResetLink(
+    email: string,
+    token: string,
+    ttlMinutes: number,
+  ) {
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    const link = `${frontendUrl}/admin/reset-password?token=${encodeURIComponent(token)}`;
+    const subject = 'Reset your MobiMates admin password';
+    const text = `Reset your admin password (expires in ${ttlMinutes} minutes):\n\n${link}\n\nIf you did not request this, you can ignore this email.`;
+    const html = `<p>Click the link below to reset your admin password. This link expires in <strong>${ttlMinutes} minutes</strong>.</p>
+<p><a href="${link}">Reset password</a></p>
+<p>If you did not request this, you can ignore this email.</p>`;
+    await this.sendMail(email, subject, text, html);
+  }
+
+  async sendOwnerPasswordResetInfo(email: string) {
+    const subject = 'Owner account password reset';
+    const text = `A password reset was requested for the owner account (${email}).
+
+Owner passwords are managed in the server environment (OWNER_PASSWORD), not through email reset links. Update OWNER_PASSWORD on the server or contact your hosting administrator.`;
+    const html = `<p>A password reset was requested for the owner account (<strong>${email}</strong>).</p>
+<p>Owner passwords are managed in the server environment (<code>OWNER_PASSWORD</code>), not through email reset links.</p>`;
+    await this.sendMail(email, subject, text, html);
+  }
+
   async sendMagicLink(email: string, token: string) {
     const frontendUrl =
       this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';

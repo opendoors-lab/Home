@@ -1,23 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { RoleAssignmentDto } from "@company/shared";
+import { PERMISSIONS } from "@company/shared";
 import { adminApi } from "@/lib/admin-api";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function RoleApprovalsPage() {
-  const { isOwner } = useAuth();
-  const router = useRouter();
+  const { hasPermission, isOwner } = useAuth();
+  const canManage = isOwner || hasPermission(PERMISSIONS.ASSIGN_ROLES);
   const [items, setItems] = useState<RoleAssignmentDto[]>([]);
 
   useEffect(() => {
-    if (!isOwner) {
-      router.replace("/admin");
-      return;
-    }
+    if (!canManage) return;
     adminApi.pendingAssignments().then(setItems).catch(console.error);
-  }, [isOwner, router]);
+  }, [canManage]);
 
   async function approve(id: string) {
     await adminApi.approveAssignment(id);
@@ -29,7 +26,13 @@ export default function RoleApprovalsPage() {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
-  if (!isOwner) return null;
+  if (!canManage) {
+    return (
+      <div className="rounded-xl border border-[var(--color-line)] bg-white p-6">
+        <p className="text-[var(--color-ink-soft)]">You do not have access to role approvals.</p>
+      </div>
+    );
+  }
 
   return (
     <div>

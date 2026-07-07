@@ -76,6 +76,14 @@ export class PostsService {
     return posts.map((p) => this.toDto(p));
   }
 
+  async listAll() {
+    const posts = await this.prisma.post.findMany({
+      include: { author: true, approvals: { include: { reviewer: true } } },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return posts.map((p) => this.toDto(p));
+  }
+
   async listPending() {
     const posts = await this.prisma.post.findMany({
       where: { status: PostStatus.PENDING_REVIEW },
@@ -154,6 +162,20 @@ export class PostsService {
 
     await this.prisma.postApproval.deleteMany({ where: { postId: id } });
 
+    const canAutoPublish = await this.permissions.hasPermission(
+      user,
+      PERMISSIONS.APPROVE_OWN_POST,
+    );
+
+    if (canAutoPublish) {
+      await this.prisma.post.update({
+        where: { id },
+        data: { status: PostStatus.PENDING_REVIEW },
+      });
+      await this.publish(id, user.id);
+      return this.getById(id);
+    }
+
     const updated = await this.prisma.post.update({
       where: { id },
       data: { status: PostStatus.PENDING_REVIEW },
@@ -171,7 +193,14 @@ export class PostsService {
     if (post.status !== PostStatus.PENDING_REVIEW) {
       throw new BadRequestException('Post is not pending review');
     }
-    if (reviewer.id === post.authorId) {
+
+    const canApproveOwn = await this.permissions.hasPermission(
+      reviewer,
+      PERMISSIONS.APPROVE_OWN_POST,
+    );
+    const isAuthor = reviewer.id === post.authorId;
+
+    if (isAuthor && !canApproveOwn) {
       throw new ForbiddenException('Author cannot approve own post');
     }
 
@@ -187,9 +216,18 @@ export class PostsService {
       update: { decision: ApprovalDecision.APPROVE, comment: null },
     });
 
-    const approvalCount = await this.prisma.postApproval.count({
+    if (isAuthor && canApproveOwn) {
+      await this.publish(id, reviewer.id);
+      return this.getById(id);
+    }
+
+    let approvalCount = await this.prisma.postApproval.count({
       where: { postId: id, decision: ApprovalDecision.APPROVE },
     });
+
+    if (canApproveOwn && !isAuthor) {
+      approvalCount += 1;
+    }
 
     if (approvalCount >= 2) {
       await this.publish(id, reviewer.id);

@@ -50,7 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await adminApi.me();
       setSession(data);
     } catch {
-      setSession(null);
+      // Don't immediately clear the session on transient failures (offline, server restart).
+      // If the refresh token is truly invalid/expired, subsequent requests will 401 and the
+      // user can sign in again.
     } finally {
       setLoading(false);
     }

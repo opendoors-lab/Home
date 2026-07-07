@@ -43,7 +43,7 @@ export default function AdminLoginPage() {
           Admin sign in
         </h1>
         <p className="mt-2 text-sm text-[var(--color-ink-soft)]">
-          Sign in with the email and temporary password sent to you. You&apos;ll set a new password on first login.
+          Sign in with your email and password.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -81,7 +81,14 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        <Link href="/newsfeed" className="mt-6 block text-center text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-amber)]">
+        <Link
+          href="/admin/forgot-password"
+          className="mt-4 block text-center text-sm text-[var(--color-amber)] hover:underline"
+        >
+          Forgot password?
+        </Link>
+
+        <Link href="/newsfeed" className="mt-4 block text-center text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-amber)]">
           ← Back to Newsfeed
         </Link>
       </div>

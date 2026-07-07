@@ -1,23 +1,10 @@
 import { PrismaClient } from '@prisma/client';
-import { PERMISSIONS } from '@company/shared';
+import { ALL_PERMISSION_KEYS, PERMISSIONS, PERMISSION_LABELS } from '@company/shared';
+
+// Load DATABASE_URL from repo .env (DATABASE_HOST, etc.) when seed runs via `npx prisma db seed`
+require('../scripts/set-database-url.js');
 
 const prisma = new PrismaClient();
-
-const PERMISSION_LABELS: Record<string, string> = {
-  [PERMISSIONS.CREATE_POST]: 'Create posts',
-  [PERMISSIONS.EDIT_OWN_POST]: 'Edit own posts',
-  [PERMISSIONS.EDIT_ANY_POST]: 'Edit any post',
-  [PERMISSIONS.DELETE_POST]: 'Delete posts',
-  [PERMISSIONS.SUBMIT_POST]: 'Submit posts for review',
-  [PERMISSIONS.APPROVE_POST]: 'Approve posts',
-  [PERMISSIONS.REJECT_POST]: 'Reject posts',
-  [PERMISSIONS.VIEW_PENDING_QUEUE]: 'View pending review queue',
-  [PERMISSIONS.INVITE_USER]: 'Invite users',
-  [PERMISSIONS.MANAGE_USERS]: 'Manage users',
-  [PERMISSIONS.MANAGE_ROLES]: 'Manage roles',
-  [PERMISSIONS.ASSIGN_ROLES]: 'Assign roles to users',
-  [PERMISSIONS.VIEW_AUDIT_LOG]: 'View audit log',
-};
 
 const BASELINE_ROLES: {
   name: string;
@@ -25,11 +12,17 @@ const BASELINE_ROLES: {
   permissions: string[];
 }[] = [
   {
+    name: 'Super Admin',
+    description: 'Full platform access (all permissions)',
+    permissions: [...ALL_PERMISSION_KEYS],
+  },
+  {
     name: 'System Admin',
-    description: 'Platform administrator',
+    description: 'Manage users, roles, assignments, and audit log',
     permissions: [
       PERMISSIONS.INVITE_USER,
       PERMISSIONS.MANAGE_USERS,
+      PERMISSIONS.MANAGE_ROLES,
       PERMISSIONS.ASSIGN_ROLES,
       PERMISSIONS.VIEW_AUDIT_LOG,
     ],
@@ -48,6 +41,20 @@ const BASELINE_ROLES: {
     description: 'Content reviewer',
     permissions: [
       PERMISSIONS.APPROVE_POST,
+      PERMISSIONS.REJECT_POST,
+      PERMISSIONS.VIEW_PENDING_QUEUE,
+    ],
+  },
+  {
+    name: 'Admin approve post',
+    description:
+      'Can write and self-publish; a single approval counts as two for other authors',
+    permissions: [
+      PERMISSIONS.CREATE_POST,
+      PERMISSIONS.EDIT_OWN_POST,
+      PERMISSIONS.SUBMIT_POST,
+      PERMISSIONS.APPROVE_POST,
+      PERMISSIONS.APPROVE_OWN_POST,
       PERMISSIONS.REJECT_POST,
       PERMISSIONS.VIEW_PENDING_QUEUE,
     ],

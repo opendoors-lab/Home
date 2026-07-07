@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { CheckCircle2, Clock, User, XCircle } from "lucide-react";
 import type { PostDto } from "@company/shared";
+import { PERMISSIONS } from "@company/shared";
 import { adminApi } from "@/lib/admin-api";
 import { shouldUseUnoptimizedImage } from "@/lib/upload-image";
+import { useAuth } from "@/contexts/AuthContext";
 
 function stripHtml(html: string) {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -103,6 +105,10 @@ function ReviewPanel({
   comment,
   setComment,
   loading,
+  canApprove,
+  canApproveOwn,
+  canReject,
+  isAuthor,
   onApprove,
   onReject,
 }: {
@@ -110,10 +116,17 @@ function ReviewPanel({
   comment: string;
   setComment: (v: string) => void;
   loading: boolean;
+  canApprove: boolean;
+  canApproveOwn: boolean;
+  canReject: boolean;
+  isAuthor: boolean;
   onApprove: () => void;
   onReject: () => void;
 }) {
   const approvers = post.approvals.filter((a) => a.decision === "APPROVE");
+  const canApproveHere = canApprove && (!isAuthor || canApproveOwn);
+  const canRejectHere = canReject && !isAuthor;
+  const showDecision = canApproveHere || canRejectHere;
 
   return (
     <div className="flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-line)] bg-white shadow-[var(--shadow-soft)]">
@@ -176,57 +189,78 @@ function ReviewPanel({
           </ul>
         )}
 
-        <div className="review-prose mt-6 max-h-[min(420px,40vh)] overflow-y-auto rounded-xl border border-[var(--color-line)] bg-[var(--color-cream)]/30 p-5">
-          <div dangerouslySetInnerHTML={{ __html: post.body }} />
+        <div className="mt-6 max-h-[min(420px,40vh)] overflow-y-auto rounded-xl border border-[var(--color-line)] bg-[var(--color-cream)]/30 p-5">
+          <div className="post-render" dangerouslySetInnerHTML={{ __html: post.body }} />
         </div>
 
-        <div className="mt-6 border-t border-[var(--color-line)] pt-6">
-          <p className="text-sm font-medium text-[var(--color-forest)]">Your decision</p>
-          <p className="mt-1 text-xs text-[var(--color-ink-soft)]">
-            Two approvals publish the post. You cannot approve your own submission.
+        {isAuthor && canApprove && !canApproveOwn && (
+          <p className="mt-6 border-t border-[var(--color-line)] pt-6 text-sm text-[var(--color-ink-soft)]">
+            You cannot review your own submission.
           </p>
+        )}
 
-          <button
-            type="button"
-            disabled={loading}
-            onClick={onApprove}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--color-forest)] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
-          >
-            <CheckCircle2 size={16} />
-            {loading ? "Saving…" : "Approve post"}
-          </button>
+        {showDecision && (
+          <div className="mt-6 border-t border-[var(--color-line)] pt-6">
+            <p className="text-sm font-medium text-[var(--color-forest)]">Your decision</p>
+            <p className="mt-1 text-xs text-[var(--color-ink-soft)]">
+              {isAuthor && canApproveOwn
+                ? "Your approval publishes this post immediately."
+                : canApproveOwn
+                  ? "Your approval counts as two toward publishing."
+                  : "Two approvals publish the post."}
+            </p>
 
-          <div className="mt-6 rounded-xl border border-red-200 bg-red-50/50 p-4">
-            <p className="flex items-center gap-1.5 text-sm font-medium text-red-900">
-              <XCircle size={16} />
-              Reject post
-            </p>
-            <p className="mt-1 text-xs text-red-800/80">
-              Rejection clears existing approvals and returns the post to the author.
-            </p>
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Explain what needs to change…"
-              rows={3}
-              className="mt-3 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm"
-            />
-            <button
-              type="button"
-              disabled={loading || !comment.trim()}
-              onClick={onReject}
-              className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              Reject with feedback
-            </button>
+            {canApproveHere && (
+              <button
+                type="button"
+                disabled={loading}
+                onClick={onApprove}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--color-forest)] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                <CheckCircle2 size={16} />
+                {loading ? "Saving…" : "Approve post"}
+              </button>
+            )}
+
+            {canRejectHere && (
+              <div className="mt-6 rounded-xl border border-red-200 bg-red-50/50 p-4">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-red-900">
+                  <XCircle size={16} />
+                  Reject post
+                </p>
+                <p className="mt-1 text-xs text-red-800/80">
+                  Rejection clears existing approvals and returns the post to the author.
+                </p>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Explain what needs to change…"
+                  rows={3}
+                  className="mt-3 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  disabled={loading || !comment.trim()}
+                  onClick={onReject}
+                  className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  Reject with feedback
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
 export default function ReviewPage() {
+  const { hasPermission, session } = useAuth();
+  const canApprove = hasPermission(PERMISSIONS.APPROVE_POST);
+  const canApproveOwn = hasPermission(PERMISSIONS.APPROVE_OWN_POST);
+  const canReject = hasPermission(PERMISSIONS.REJECT_POST);
+
   const [posts, setPosts] = useState<PostDto[]>([]);
   const [selected, setSelected] = useState<PostDto | null>(null);
   const [comment, setComment] = useState("");
@@ -327,6 +361,10 @@ export default function ReviewPage() {
               comment={comment}
               setComment={setComment}
               loading={loading}
+              canApprove={canApprove}
+              canApproveOwn={canApproveOwn}
+              canReject={canReject}
+              isAuthor={session?.user.id === selected.authorId}
               onApprove={() => approve(selected.id)}
               onReject={() => reject(selected.id)}
             />
@@ -338,50 +376,7 @@ export default function ReviewPage() {
         </div>
       )}
 
-      <style jsx global>{`
-        .review-prose h1,
-        .review-prose h2,
-        .review-prose h3 {
-          font-family: var(--font-display);
-          color: var(--color-forest);
-          margin-top: 1.25em;
-          margin-bottom: 0.5em;
-        }
-        .review-prose p {
-          margin: 0.75em 0;
-          line-height: 1.7;
-          color: var(--color-ink);
-        }
-        .review-prose ul,
-        .review-prose ol {
-          margin: 0.75em 0;
-          padding-left: 1.5em;
-        }
-        .review-prose blockquote {
-          margin: 1em 0;
-          padding-left: 1em;
-          border-left: 3px solid var(--color-amber);
-          color: var(--color-ink-soft);
-          font-style: italic;
-        }
-        .review-prose img {
-          max-width: 100%;
-          height: auto;
-          border-radius: 0.75rem;
-          margin: 1em 0;
-        }
-        .review-prose a {
-          color: var(--color-amber);
-          text-decoration: underline;
-        }
-        .review-prose pre {
-          overflow-x: auto;
-          padding: 0.875rem;
-          border-radius: 0.5rem;
-          background: var(--color-cream-200);
-          font-size: 0.875rem;
-        }
-      `}</style>
+      {/* post body styling comes from global .post-render */} 
     </div>
   );
 }

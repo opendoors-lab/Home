@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { AccountStatus, AssignmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../common/services/audit.service';
 import { MailerService } from '../common/services/mailer.service';
+import { PermissionsService } from '../common/services/permissions.service';
 import { AuthService } from '../auth/auth.service';
 import { AuthUser } from '../common/types/auth-user';
 import { InviteUserDto } from './dto/invite-user.dto';
@@ -23,6 +25,7 @@ export class UsersService {
     private readonly mailer: MailerService,
     private readonly auth: AuthService,
     private readonly config: ConfigService,
+    private readonly permissions: PermissionsService,
   ) {}
 
   async invite(dto: InviteUserDto, actor: AuthUser) {
@@ -136,6 +139,15 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
 
+    if (this.permissions.isOwner(user.email)) {
+      if (dto.accountStatus && dto.accountStatus !== AccountStatus.ACTIVE) {
+        throw new ForbiddenException('Owner account status cannot be changed');
+      }
+      if (dto.name !== undefined) {
+        throw new ForbiddenException('Owner profile cannot be modified here');
+      }
+    }
+
     const updated = await this.prisma.user.update({
       where: { id },
       data: dto,
@@ -191,6 +203,29 @@ export class UsersService {
       assignedById: assignment.assignedById,
       createdAt: assignment.createdAt.toISOString(),
     };
+  }
+
+  async revokeRole(userId: string, assignmentId: string, actor: AuthUser) {
+    const assignment = await this.prisma.userRole.findUnique({
+      where: { id: assignmentId },
+      include: { user: true, role: true },
+    });
+    if (!assignment || assignment.userId !== userId) {
+      throw new NotFoundException('Role assignment not found');
+    }
+    if (this.permissions.isOwner(assignment.user.email)) {
+      throw new ForbiddenException('Cannot remove roles from the owner account');
+    }
+
+    await this.prisma.userRole.delete({ where: { id: assignmentId } });
+
+    await this.audit.log(actor.id, 'ROLE_REVOKED', 'UserRole', assignmentId, {
+      userId,
+      roleId: assignment.roleId,
+      roleName: assignment.role.name,
+    });
+
+    return { ok: true };
   }
 
   async listPendingAssignments() {
@@ -260,7 +295,7 @@ export class UsersService {
       email: user.email,
       name: user.name,
       accountStatus: user.accountStatus,
-      isOwner: false,
+      isOwner: this.permissions.isOwner(user.email),
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     };
