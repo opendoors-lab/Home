@@ -13,7 +13,7 @@ export const hero = {
   title: "Every Seat Counts.",
   titleAm: "እያንዳንዱ ወንበር ዋጋ አለው!",
   body:
-    "Share your morning commute. Rescue a neighbor from the queue. Split the cost along the way. MobiMates is Addis Ababa's trusted carpooling community — more comfortable than the bus, far cheaper than a taxi, and built on the spirit of mutual help.",
+    "Share your morning commute. Spare a neighbor the long queues. Split the fuel cost safely along the way. MobiMates is Addis Ababa’s highly trusted carpooling network—built on community and mutual help. Travel with verified professionals, and experience a modern, smarter, more affordable way to move.",
   primaryCta: "Download MobiMates",
   secondaryCta: "See how it works",
 };
