@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
   revalidatePath("/blog");
   revalidatePath("/");
-  revalidatePath("/about");
+  revalidatePath("/aboutus");
   revalidatePath("/how-it-works");
   revalidatePath("/features");
   revalidatePath("/safety");

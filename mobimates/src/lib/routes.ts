@@ -1,6 +1,6 @@
 export const routes = {
   home: "/",
-  about: "/about",
+  about: "/aboutus",
   howItWorks: "/how-it-works",
   features: "/features",
   safety: "/safety",
@@ -10,8 +10,8 @@ export const routes = {
   sustainability: "/sustainability",
   rewards: "/rewards",
   faq: "/faq",
-  privacy: "/privacy",
-  terms: "/terms",
+  privacy: "/privacy-policy",
+  terms: "/term-condition",
   support: "/support",
   deleteAccount: "/delete-account",
   getStarted: "/get-started",
